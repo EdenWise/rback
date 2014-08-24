@@ -84,7 +84,6 @@ if [ "$confdir" ]; then
 else
   confdir="${XDG_CONFIG_HOME:-$HOME/.config}/rback"
   config="$confdir"/config
-echo "$config"
   if [ -f "$config" ]; then
     source "$config"
   # configuration create if non-existent
@@ -127,16 +126,17 @@ if [ "$Reponew" ]; then
     echo "repo-created-: '"$Reponew"'; define dirs. in conf. '("${0##*/}" -C)'"
     exit 0; fi; fi
 
-# --repo: repository existence test
+# --repo: repository validity test
 if [ "$repo" ]; then
   for repovar in "$host"_"$repo"_b{src,dsp} "$host"_"$repo"_r{srp,dst}; do
     grep ^"$repovar"= "$config" > /dev/null 2>&1 || \
       repovar_error=1; done
+  # valid repositories display on error
   if [ "$repovar_error" ]; then
     echo "repo-nonvalid: "$repo""
     # Repos variables pull from config
-    repolst=$(grep -o -P "(?<="$host"_).*(?=_[b,r][s,d][r,s][c,p,t])" \
-      "$config" > /dev/null 2>&1)
+    repolst=$(grep -o --no-messages -P \
+      "(?<="$host"_).*(?=_[b,r][s,d][r,s][c,p,t])" "$config")
     # Repo variable validity test
     for uniq in $(echo "$repolst" | uniq); do
       for repovar in "$host"_"$uniq"_b{src,dsp} "$host"_"$uniq"_r{srp,dst}; do
