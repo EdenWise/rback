@@ -1,0 +1,29 @@
+=encoding UTF8
+
+=head1 NAME
+
+rback - a generic, local, rsync-based, restore and backup script
+
+=head1 SYNOPSIS
+
+rback [B<-r> I<repository>] [B<-R> I<reponew>] [B<-e> I<file>] [B<-i> I<file>] B<-x> [I<execute>]
+
+rback [B<-c> I<folder>] [B<-s> I<folder>] [B<-d> I<folder>] [B<-j>]
+
+=head1 DESCRIPTION
+
+B<rback> is a generic wrapper script for B<rsync>(1) for basic backup and restore.  It is meant for local backups only (i.e. the same computer that B<rback> is on).  It is repository based for multiple backup types.  It will work for full system backups, to backing up one's configurations.  B<rback> sets: the necessary copy options, the pre-defined I<source> and I<destination> directories, and the contents of what to backup/restore.  Files and folders are defined to B<rback> of their inclusion or exclusion.
+
+B<rback> also includes a I<diff> method if just working with text files (useful for restoring system configurations).
+
+=head1 OPTIONS
+
+B<rback>'s option can be in any order.
+
+=over 4
+
+
+
+=item B<-c> I<folder>, B<--confdir>=I<folder>
+
+=back

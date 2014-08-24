@@ -1,0 +1,11 @@
+/dev/
+/lost+found/
+/media
+/mnt/
+/proc/
+/run/
+/sys/
+/tmp/
+/var/lock/
+/var/log/journal/
+/var/run/
