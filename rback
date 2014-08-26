@@ -1,8 +1,8 @@
 #!/bin/bash
-# A generic, local, rsync-based, restore and backup script
+# A generic, local, rsync-based, backup and restore script
 
 help_print () {
-  echo ""${0##*/}" - a generic, local, rsync-based, restore and backup script
+  echo ""${0##*/}" - a generic, local, rsync-based, backup and restore script
   -r, --repo    - repository select                     : -R repository new
   -i, --include - include list add files, folders...    : -I include list edit
   -e, --exclude - exclude list add files, folders...    : -E exclude list edit
@@ -33,9 +33,9 @@ while [ "$1" != "--" ]; do
     -x | --xecute  ) xecute="$2" ; shift 2 ;;
     # = blunt versions =
     -R | --Reponew ) Reponew="$2"; shift 2 ;;
-    -I | --Incedit ) Incedit=1   ; shift   ;;
-    -E | --Excedit ) Excedit=1   ; shift   ;;
-    -C | --Cfgedit ) Cfgedit=1   ; shift   ;;
+    -I | --Incedit ) Incedit=y   ; shift   ;;
+    -E | --Excedit ) Excedit=y   ; shift   ;;
+    -C | --Cfgedit ) Cfgedit=y   ; shift   ;;
     # = overrides =
     -c | --confdir ) confdir="$2"; shift 2 ;;
     -s | --srcdir  ) srcdir="$2" ; shift 2 ;;
@@ -111,7 +111,7 @@ bckname="$host"_"$date"_"$repo"
 
 # --Reponew: repository build new 
 if [ "$Reponew" ]; then
-  if $(grep ^repo_"$Reponew"_ "$config" > /dev/null 2>&1); then
+  if $(grep ^repo_"$Reponew"_ "$config"); then
     echo "repo-existant: "$Reponew""
     exit 1
   else
@@ -123,14 +123,15 @@ if [ "$Reponew" ]; then
       "$host"_"$Reponew"_{rsrp,rdst}=\"\"; do
       echo "$r" >> "$config"; done
     echo -e "\n# vim: set noet syn=conf:" >> "$config"; } && \
-    echo "repo-created-: '"$Reponew"'; define dirs. in conf. '("${0##*/}" -C)'"
+    echo "reponewcreatd: \""$Reponew"\""
+    echo "reponewcreatd: Edit config. to define backup/restore directories."
     exit 0; fi; fi
 
 # --repo: repository validity test
 if [ "$repo" ]; then
   for repovar in "$host"_"$repo"_b{src,dsp} "$host"_"$repo"_r{srp,dst}; do
-    grep ^"$repovar"= "$config" > /dev/null 2>&1 || \
-      repovar_error=1; done
+    grep ^"$repovar"= "$config" || \
+      repovar_error=y; done
   # valid repositories display on error
   if [ "$repovar_error" ]; then
     echo "repo-nonvalid: "$repo""
@@ -140,7 +141,7 @@ if [ "$repo" ]; then
     # Repo variable validity test
     for uniq in $(echo "$repolst" | uniq); do
       for repovar in "$host"_"$uniq"_b{src,dsp} "$host"_"$uniq"_r{srp,dst}; do
-        if ! grep ^"$repovar"= "$config" > /dev/null 2>&1; then
+        if ! grep ^"$repovar"= "$config"; then
           continue; fi; done
         echo "repo-varvalid: "$uniq""; done
     exit 1; fi; fi
@@ -152,19 +153,21 @@ if [ "$Cfgedit" ]; then
 # --include, --exclude files define
 inclist="$confdir"/"$host"_"$repo"_inc.txt
 exclist="$confdir"/"$host"_"$repo"_exc.txt
+[ ! -f "$inclist" ] && touch "$inclist"
+[ ! -f "$exclist" ] && touch "$exclist"
 
 # --include: include list entry existance test
 if [ "$include" ]; then
   for file in ${include[@]}; do
     if [ ! -e "$file" ]; then
       echo "inc-nonexist: "$file""
-      incl_nonexist=1; fi; done
+      incl_nonexist=y; fi; done
   [ "$incl_nonexist" ] && exit 1
   # include list add to, sort, and erase dups
   for file in ${include[@]}; do
     filepath="$(realpath -s "$file")"       # full path resolve (root fs base /)
     [ -d "$file" ] && filepath="$filepath/" # dir require trailing forward slash
-    if grep -x "$filepath" "$inclist"  > /dev/null 2>&1; then
+    if grep -x "$filepath" "$inclist"; then
       echo "include-exist: "$file""
       continue; fi
     echo "$filepath" >> "$inclist" && \
@@ -180,13 +183,13 @@ if [ "$exclude" ]; then
   for file in ${exclude[@]}; do
     if [ ! -e "$file" ]; then
       echo "excl-nonexist: "$file""
-      excl_nonexist=1; fi; done
+      excl_nonexist=y; fi; done
   [ "$excl_nonexist" ] && exit 1
   # exclude list add to, sort, and erase dups
   for file in ${exclude[@]}; do
     filepath="$(realpath -s "$file")"       # full path resolve (root fs base /)
     [ -d "$file" ] && filepath="$filepath/" # dir require trailing forward slash
-    if grep -x "$filepath" "$exclist" > /dev/null 2>&1; then
+    if grep -x "$filepath" "$exclist"; then
       echo "exclude-exist: "$file""
       continue; fi
     echo "$filepath" >> "$exclist" && \
@@ -199,6 +202,28 @@ if [ "$Excedit" ]; then
 
 # Non-root user: define sudo
 [ $EUID != 0 ] && sudo=sudo
+
+# Include and exclude list validity test
+if [ "$xecute" = "backup" -o "$xecute" = "restore" -o "$xecute" = "diff" ]; then
+  # inclist entry existence test
+  if [ ! -s "$inclist" ]; then
+    echo "inclist-error: include list has no entries"
+    exit 1; fi
+  # inclist entry validity test
+  while IFS= read -r line; do
+    if [ -e "$line" ]; then
+      inclist_valid=y
+    else
+      echo "incl-nonexist: "$line""; fi; done < "$inclist"
+  # inclist entry validity total failure (< 1)
+  if [ ! "$inclist_valid" ]; then
+    echo "inclist-error: include list has no valid entries"
+    exit 1
+  fi
+  # exclist entry validity test
+  while IFS= read -r line; do
+    if [ ! -e "$line" ]; then
+      echo "excl-nonexist: "$line""; fi; done < "$exclist"; fi
 
 # --xecute backup
 if [ "$xecute" = "backup" ]; then
@@ -240,9 +265,9 @@ if [ "$xecute" = "backup" ]; then
       else
         mkdir -p "$dstdir" && echo "dstdircreated: "$dstdir""; fi; fi; fi
   # Backup
-  rsynclog=/tmp/"$host"_"$date"_"$repo"--backup-errors.txt
+  rsynclog=/tmp/"$host"_"$date"_"$repo"_backup-errors.txt
   while true; do
-    # Justdoit - no confirm    
+    # justdoit - no confirm    
     if [ ! $justdo ]; then
       read -p "Execute bckp?: (y/n): " yn
     else
@@ -301,9 +326,9 @@ if [ "$xecute" = "restore" ]; then
       echo "srcdirexistnt: "$srcdir""
       echo "dstdirexistnt: "$dstdir""; fi; fi
   # Restore
-  rsynclog=/tmp/"$host"_"$date"_"$repo"--restore-errors.txt
+  rsynclog=/tmp/"$host"_"$date"_"$repo"_restore-errors.txt
   while true; do
-    # Justdoit - no confirm    
+    # justdoit - no confirm    
     if [ ! $justdo ]; then
       read -p "Execute rstr?: (y/n): " yn
     else
@@ -363,7 +388,7 @@ if [ "$xecute" = "diff" ]; then
       echo "dstdirexistnt: "$dstdir""; fi; fi
   # Diff
   while true; do
-    # Justdoit - no confirm    
+    # justdoit - no confirm    
     if [ ! $justdo ]; then
       read -p "Execute diff?: (y/n): " yn;
     else
