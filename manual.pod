@@ -2,28 +2,239 @@
 
 =head1 NAME
 
-rback - a generic, local, rsync-based, restore and backup script
+rback - a generic, local, rsync-based, backup and restore script
 
 =head1 SYNOPSIS
 
-rback [B<-r> I<repository>] [B<-R> I<reponew>] [B<-e> I<file>] [B<-i> I<file>] B<-x> [I<execute>]
-
-rback [B<-c> I<folder>] [B<-s> I<folder>] [B<-d> I<folder>] [B<-j>]
+rback [B<-r> I<repository>] [B<-R> I<reponew>] [B<-i> I<file>] [B<-e> I<file>] [B<-I>] [B<-E>] [B<-C>] [B<-c> I<folder>] [B<-s> I<folder>] [B<-d> I<folder>] [B<-x> I<execute-type>] [B<-j>]
 
 =head1 DESCRIPTION
 
-B<rback> is a generic wrapper script for B<rsync>(1) for basic backup and restore.  It is meant for local backups only (i.e. the same computer that B<rback> is on).  It is repository based for multiple backup types.  It will work for full system backups, to backing up one's configurations.  B<rback> sets: the necessary copy options, the pre-defined I<source> and I<destination> directories, and the contents of what to backup/restore.  Files and folders are defined to B<rback> of their inclusion or exclusion.
+B<rback> is a generic backup and restore script.  It wraps common functions of B<rsync>(1) to aggragate backup necessities.  B<rback> defines:
 
-B<rback> also includes a I<diff> method if just working with text files (useful for restoring system configurations).
+=over
+
+=item 1. The copy options.
+
+=item 2. The I<source> and I<destination> directories.
+
+=item 3. The I<file>, I<folders>... to I<include> or I<exclude>.
+
+=back
+
+B<rback> is repository-based to allow for multiple backup types (like full system backups, configurations...), and is only for local backups (i.e. the same computer that it resides on).  Additionaly, B<rback> includes a I<diff> method for working with text files.
 
 =head1 OPTIONS
 
-B<rback>'s option can be in any order.
+Repositories:
 
 =over 4
 
+=item B<-r> I<repository>, B<--repo>=I<repository>
 
+Defines to rback which repository to use.  This option is required with all options except B<-R>, B<--Reponew>.  If erroneously entered, valid repositories are displayed.
+
+=item B<-R> I<reponew>, B<--Reponew>=I<reponew>
+
+Creates a new repository with name I<reponew> and exits.  A valid repository name is a single word containing alpha-numeric and underscore characters.
+
+=back
+
+Filelists:
+
+=over 4
+
+=item B<-i> I<file>, B<--include>=I<file>
+
+Add a I<file>, I<folder>... to the include file.
+
+=item B<-e> I<file>, B<--exclude>=I<file>
+
+Add a I<file>, I<folder>... to the exclude file.
+
+=back
+
+Configurations:
+
+=over 4
+
+=item B<-I>, B<--Incedit>
+
+Include file edit.
+
+=item B<-E>, B<--Excedit>
+
+Exclude file edit (wildcards allowed).
+
+=item B<-C>, B<--Cfgedit>
+
+Configuration file edit.
+
+=back
+
+Overrides:
+
+=over 4
 
 =item B<-c> I<folder>, B<--confdir>=I<folder>
 
+Configuration directory define (this is necessary, for example, when backing up or restoring from a LiveCD).
+
+=item B<-s> I<folder>, B<--srcdir>=I<folder>
+
+Source directory define (overriding configuration file value).
+
+=item B<-d> I<folder>, B<--dstdir>=I<folder>
+
+Destination directory define (overriding configuration file value).
+
 =back
+
+Execute:
+
+=over 4
+
+=item B<-x> I<execute-type>, B<--xecute>=I<execute-type>
+
+Execute type: I<backup>, I<restore>, or I<diff>.
+
+=item B<-j>, B<--justdo>
+
+Execute without confirmation a I<backup>, I<restore>, or I<diff>.
+
+=back
+
+=head1 CONFIGURATION
+
+The configuration is created when the first repository is created.  The configuration file location is at F<~/.config/rback/config> and can be edited with C<rback -C>.
+
+B<host=> is the prefix of the backup name (see B<bckname=> below).  A desireable B<host> name is a short description of the computer name, around four letters.  The environmental variable HOSTNAME here can be used; however, when using a non-root filesystem (e.g. a LiveCD for a restore) the HOSTNAME variable will differ.
+
+B<date=> uses the conventional Year-Month-Day (%Y-%m-%d) format C<date +%F>.  This format is recommended for organizational listing purposes.
+
+B<bckname=> is what the backup directory will be named.  By default the format is: F<host_YYYY-MM-DD_repo>.
+
+Repository directories will need to be defined for each repository.  The directory variables are added to the configuration when the repository is created.  The directories are as follows:
+
+=over 4
+
+=item * B<$host>_B<$repo>_B<bsrc> = backup source directory
+
+=item * B<$host>_B<$repo>_B<bdsp> = backup destination parent directory
+
+=item * B<$host>_B<$repo>_B<rsrp> = restore source parent directory
+
+=item * B<$host>_B<$repo>_B<rdst> = restore destination directory
+
+=back
+
+The backup source directory (B<bsrc>) should list the root directory ("F</>").  B<rback> records the full path (absolute path) of files to I<include> or I<exclude> so therefore the backup source directory should always be the root directory ("F</>").
+
+The backup destination parent directory (B<bdsp>) is the directory that will contain the destination directory.  The "destination" directory will be: B<bdsp>/B<$bckname>/.
+
+The B<rsrp> directory is the parent directory for a restore.  B<rback> on I<restore> or I<diff> will ask for which directory to use as the source directory from the parent directory.  Because restores are typically done from a "Live" medium (like a LiveCD) a B<rsrp> directory may look like: F</mnt/sdb1>.
+
+The restore destination directory (B<rdst>) may look like: F</mnt/sda1>.
+
+=head1 EXAMPLES
+
+Add a repository:
+
+B<    rback --Reponew linxconf>
+    reponewcreatd: "linxconf"
+    reponewcreatd: Edit config. to define backup/restore directories.
+
+Add a file to the repository:
+
+B<    rback --repo linxconf --include /etc/fstab>
+    include-added: /etc/fstab
+
+Add multiple files (require quotes and a non-special charactered path [see B<BUGS>]):
+
+B<    rback --repo linxconf --include "/etc/pacman.conf ../../.vimrc...">
+    include-added: /etc/pacman.conf
+    ...
+
+A backup can now be done by doing:
+
+B<    rback --repo linxconf --xecute=backup>
+    srcdirexistnt: /
+    dstdircreated: /mnt/Backup/amiga_YYYY-MM-DD_linxconf
+    Exec. backup?: y
+        239.31K  97%  419.01kB/s    0:00:10 (xfr#41, to-chk=20/70) 
+
+A restore will look like this (from a LiveCD, config. dir. defined):
+
+B<    srcmnt=/mnt/sdb1/amiga_YYYY-MM-DD_linxconf/>
+E<32>E<32>E<32>E<32>B<$srcmnt/usr/bin/./rback --repo linxconf --xecute restore \>
+E<32>E<32>E<32>E<32>E<32>E<32>B<-c $srcmnt/home/user/.config/rback>
+    conf-alternat: sourced
+    Select restore source directory:
+    1) /mnt/sdb1/amiga_YYYY-MM-10_linxconf
+    2) /mnt/sdb1/amiga_YYYY-MM-12_linxconf
+    #? 
+
+Source directory and destination directory can be defined if not wanting to edit the configuration:
+
+B<    rback --repo linxconf --srcdir=/mnt/sdb1/amiga... -d /mnt/sda1>
+
+=head1 ROOTLIVE BACKUP
+
+A backup is generally done from an external media source (non-root filesystem) like a LiveCD.  This is good discretion because some temporary files that exist on a "rootlive" media should not be put on a backup.  Other files to consider are: storage devices that are mounted, and files that a program/user may alter during a backup.  Backing up a "rootlive" media is possible with these considerations.
+
+B<rback> comes with an I<exclude> list of temporary file locations and typical non-system mounts.  Copy or link F<host_linxfull_exc.txt> to I<host>_I<repo>_exc.txt in the configuration directory.  Warning: though this method has be tested successfully please use at your own risk.
+
+=head1 DIFF RESTORE
+
+B<rback> can also be used to differentiate files.  This method can be useful after a re-install to update-diff configurations.  When the "B<--xecute> I<diff>" method is choosen, the source directory files will be compared to the destination directory files.  By default B<rback> uses B<vimdiff>(1) so rback essentially launches a command like this:
+
+B<    vimdiff> F</mnt/sdb1/amiga-YYYY-MM-DD-linxconf/etc/fstab> \
+E<32>E<32>E<32>E<32>E<32>E<32>F</mnt/sda1/etc/fstab>.
+
+B<rback> processes the files and: bypasses them when the files match; bypasses when the source file is absent; calls diff when the files differentiate; or calls diff when the destination file is non-existent (as some configuration files are manually built).
+
+=head1 BUGS
+
+=over 4
+
+=item I<Note>: Error log.
+
+If there as an error on a backup/restore, the error log location will be displayed.
+
+=item I<Note>: B<rback> forces sudo use.
+
+Though not every backup or restore may require superuser access, to realisticly test every file before every backup/restore is unrealistic; its requirement is therefore necessary.
+
+=item I<Note>: Progress bar may not work.
+
+Older versions of B<rsync>(1) may not have this function yet.  Authors version is 3.1.1.
+
+=item I<Note>: Incremental backups not really considered.
+
+While I<--delete-during> is set in the B<rsync> options this option works only if I<--include> listings are directories.  I.e. if a file is taken out of the include list it will remain in the source directory.  If one can remember, they can set the date to C<$(date +%Y-%m)> for example and do monthly incremental backups if they leave only directories in the include list.
+
+=item I<Bug>: B<--include> and B<--exclude> options cannot except multiple files.
+
+Except for entering non-wildcarded filepaths, and quoting multiple files (see example above), I have yet to find a way to do this.  This is one of the limitations of B<getopt>(1).  Eventually I might switch to B<getopts>(1) (which I believe can do multiple arguments L<http://tinyurl.com/oepyaxx>) and ditch long options.
+
+=item I<Bug>: Options can be accidentally repeated.
+
+B<rback> parses command line options and processes them in a pre-defined order therefore overwriting repeated options.  My scripting knowledge has yet to learn of a way around this.  It would be nice to add an error if an option gets repeated (except for B<--include> and B<--exclude> that is).
+
+=item I<Todo>: B<--include> and B<--exclude> additions from non-root filesystem
+
+Adding files to the include or exclude file from a non-root filesystem cannot correctly be done.  Eventually an option may be added.
+
+=back
+
+=head1 SEE ALSO
+
+B<rsync>(1), B<vim>(1).
+
+=head1 AUTHOR
+
+Todd Partridge E<lt>toddrpartridge@gmail.comE<gt>
+
+=head1 COPYRIGHT
+
+License GPLv2: GNU GPL version 2 L<http://gnu.org/licenses/gpl.html>.

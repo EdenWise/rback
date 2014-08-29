@@ -47,30 +47,7 @@ while [ "$1" != "--" ]; do
   esac; done
 shift
 
-# Option error test: --repo needed for most options
-if [ "$include$exclude$xecute$Incedit$Excedit$srcdir$dstdir" ] && \
-  [ ! "$repo" ]; then
-  echo "options-error: --repo option needed for given option"
-  exit 1; fi
-
-# Option error test: --xecute needed for --justdo
-if [ "$justdo" ] && [ ! "$xecute" ]; then
-  echo "options-error: --xecute option needed for --justdo option"
-  exit 1; fi
-
-# Option error test: --xecute needed for --srcdir and --dstdir
-if [ "$srcdir""$dstdir" ] && [ ! "$xecute" ]; then
-  echo "options-error: --xecute option needed for --srcdir and --dstdir" \
-    "option"
-  exit 1; fi
-
-# Option error test: --xecute must be either: backup, restore, or diff
-if [ "$xecute" ]; then
-  if ! [ "$xecute" = backup -o "$xecute" = restore -o "$xecute" = diff ]; then
-    echo "options-error: --xecute argument needed: backup, restore, or diff"
-    exit 1; fi; fi
-
-# --confdir: configuration load (command line path)
+# --confdir
 if [ "$confdir" ]; then
   confdir="$(echo "$confdir" | sed 's#/$##g')"
   config="$confdir"/config
@@ -80,7 +57,7 @@ if [ "$confdir" ]; then
   else
     echo "conf-nonexist: "$config""
     exit 1; fi
-# configuration load (file)
+# $confdir
 else
   confdir="${XDG_CONFIG_HOME:-$HOME/.config}/rback"
   config="$confdir"/config
@@ -88,7 +65,8 @@ else
     source "$config"
   # configuration create if non-existent
   else
-  [ ! -d "$confdir" ] && mkdir -p "$confdir" && \
+    [ ! -d "$confdir" ] && \
+    mkdir -p "$confdir" && \
     echo "cnfdir-creatd: "$confdir""
 echo '# rback configuration file
 
@@ -106,42 +84,64 @@ bckname="$host"_"$date"_"$repo"
 
 # vim: set noet syn=conf:' > "$config" && \
      echo "config-creatd: "$config""
-     echo "config-warnng: configuration can be edited with '-C'"
+     echo "config-creatd: configuration can be edited with '-C'"
   exit 1; fi; fi
 
 # --Reponew: repository build new 
 if [ "$Reponew" ]; then
-  if $(grep ^repo_"$Reponew"_ "$config"); then
+  if grep -q ^"$host"_"$Reponew"_* "$config"; then
     echo "repo-existant: "$Reponew""
     exit 1
   else
-    # trim of config: vim file desc., trailing lines
+    # trim config: vim file desc., trailing lines
     { sed -i '/# vim: set noet syn=conf:/d' "$config"
     while [ "$(tail -n1 "$config")" = "" ]; do sed -i '$d' "$config"; done
-    # add to config: repository name, vim file desc.
-    for r in "$host"_"$Reponew"_{bsrc,bdsp}=\"\" \
+    # addto config: repository name, vim file desc.
+    for repodirvar in "$host"_"$Reponew"_{bsrc,bdsp}=\"\" \
       "$host"_"$Reponew"_{rsrp,rdst}=\"\"; do
-      echo "$r" >> "$config"; done
+      echo "$repodirvar" >> "$config"; done
     echo -e "\n# vim: set noet syn=conf:" >> "$config"; } && \
     echo "reponewcreatd: \""$Reponew"\""
     echo "reponewcreatd: Edit config. to define backup/restore directories."
     exit 0; fi; fi
 
+# Option error test: --repo required for most options
+if [ "$include$exclude$xecute$Incedit$Excedit$srcdir$dstdir" -a ! "$repo" ];then
+  echo "options-error: --repo option required for one or more given option"
+  exit 1; fi
+
+# Option error test: --xecute needed for --justdo
+if [ "$justdo" ] && [ ! "$xecute" ]; then
+  echo "options-error: --xecute option required for --justdo option"
+  exit 1; fi
+
+# Option error test: --xecute needed for --srcdir and --dstdir
+if [ "$srcdir$dstdir" ] && [ ! "$xecute" ]; then
+  echo "options-error: --xecute option required for --srcdir and --dstdir" \
+    "option"
+  exit 1; fi
+
+# Option error test: --xecute must be either: backup, restore, or diff
+if [ "$xecute" ]; then
+  if ! [ "$xecute" = backup -o "$xecute" = restore -o "$xecute" = diff ]; then
+    echo "options-error: --xecute argument invalid; backup, restore, or diff"
+    exit 1; fi; fi
+
 # --repo: repository validity test
 if [ "$repo" ]; then
+  # repo. variables validity test
   for repovar in "$host"_"$repo"_b{src,dsp} "$host"_"$repo"_r{srp,dst}; do
-    grep ^"$repovar"= "$config" || \
-      repovar_error=y; done
-  # valid repositories display on error
+    grep -q ^"$repovar"= "$config" || repovar_error=y; done
+  # repo. non-valid
   if [ "$repovar_error" ]; then
     echo "repo-nonvalid: "$repo""
-    # Repos variables pull from config
-    repolst=$(grep -o --no-messages -P \
+    # repo variables parse from config
+    repo_names=$(grep -o -P \
       "(?<="$host"_).*(?=_[b,r][s,d][r,s][c,p,t])" "$config")
-    # Repo variable validity test
-    for uniq in $(echo "$repolst" | uniq); do
+    # repo variables validity test
+    for uniq in $(echo "$repo_names" | uniq); do
       for repovar in "$host"_"$uniq"_b{src,dsp} "$host"_"$uniq"_r{srp,dst}; do
-        if ! grep ^"$repovar"= "$config"; then
+        if ! grep -q ^"$repovar"= "$config"; then
           continue; fi; done
         echo "repo-varvalid: "$uniq""; done
     exit 1; fi; fi
@@ -150,25 +150,27 @@ if [ "$repo" ]; then
 if [ "$Cfgedit" ]; then
   "$editor" "$config"; fi
 
-# --include, --exclude files define
+# --include, --exclude: file locations
 inclist="$confdir"/"$host"_"$repo"_inc.txt
 exclist="$confdir"/"$host"_"$repo"_exc.txt
 [ ! -f "$inclist" ] && touch "$inclist"
 [ ! -f "$exclist" ] && touch "$exclist"
 
-# --include: include list entry existance test
+# --include: include list addition
 if [ "$include" ]; then
   for file in ${include[@]}; do
+    # file existence test
     if [ ! -e "$file" ]; then
-      echo "inc-nonexist: "$file""
+      echo "incl-nonexist: "$file""
       incl_nonexist=y; fi; done
   [ "$incl_nonexist" ] && exit 1
-  # include list add to, sort, and erase dups
+  # add, sort, and erase dups
   for file in ${include[@]}; do
-    filepath="$(realpath -s "$file")"       # full path resolve (root fs base /)
-    [ -d "$file" ] && filepath="$filepath/" # dir require trailing forward slash
-    if grep -x "$filepath" "$inclist"; then
-      echo "include-exist: "$file""
+    filepath="$(realpath -s "$file")"
+    [ -d "$file" ] && filepath="$filepath/" # directories require trailing /
+    # entry pre-existence test
+    if grep -xq "$filepath" "$inclist"; then
+      echo "include-duppd: "$file""
       continue; fi
     echo "$filepath" >> "$inclist" && \
     echo "include-added: "$file""; done
@@ -178,19 +180,21 @@ if [ "$include" ]; then
 if [ "$Incedit" ]; then
   "$editor" "$inclist"; fi
 
-# --exclude: exclude list entry existance test
+# --exclude: exclude list addition
 if [ "$exclude" ]; then
   for file in ${exclude[@]}; do
+    # file existence test
     if [ ! -e "$file" ]; then
       echo "excl-nonexist: "$file""
       excl_nonexist=y; fi; done
   [ "$excl_nonexist" ] && exit 1
-  # exclude list add to, sort, and erase dups
+  # add, sort, and erase dups
   for file in ${exclude[@]}; do
-    filepath="$(realpath -s "$file")"       # full path resolve (root fs base /)
-    [ -d "$file" ] && filepath="$filepath/" # dir require trailing forward slash
-    if grep -x "$filepath" "$exclist"; then
-      echo "exclude-exist: "$file""
+    filepath="$(realpath -s "$file")"
+    [ -d "$file" ] && filepath="$filepath/"
+    # entry pre-existence test
+    if grep -xq "$filepath" "$exclist"; then
+      echo "exclude-duppd: "$file""
       continue; fi
     echo "$filepath" >> "$exclist" && \
     echo "exclude-added: "$file""; done
@@ -200,10 +204,7 @@ if [ "$exclude" ]; then
 if [ "$Excedit" ]; then
   "$editor" "$exclist"; fi
 
-# Non-root user: define sudo
-[ $EUID != 0 ] && sudo=sudo
-
-# Include and exclude list validity test
+# --include, --exclude list validity tests
 if [ "$xecute" = "backup" -o "$xecute" = "restore" -o "$xecute" = "diff" ]; then
   # inclist entry existence test
   if [ ! -s "$inclist" ]; then
@@ -225,38 +226,40 @@ if [ "$xecute" = "backup" -o "$xecute" = "restore" -o "$xecute" = "diff" ]; then
     if [ ! -e "$line" ]; then
       echo "excl-nonexist: "$line""; fi; done < "$exclist"; fi
 
+# Non-root user: define sudo
+[ $EUID != 0 ] && sudo=sudo
+
 # --xecute backup
 if [ "$xecute" = "backup" ]; then
-  # --srcdir existence test
-  if [ $srcdir ]; then
+  # --srcdir
+  if [ "$srcdir" ]; then
     if [ ! -d "$srcdir" ]; then
       echo "srcdirnonexst: "$srcdir"" && exit 1
     else
       echo "srcdirexistnt: "$srcdir""; fi
-  # $srcdir (configuration file value)
+  # $srcdir
   else
-    srcdir="$host"_"$repo"_bsrc # {} for underscores
-    srcdir=$(echo ${!srcdir})   # ! for indirect parameter expansion
+    srcdir="$host"_"$repo"_bsrc
+    srcdir=$(echo ${!srcdir})   # ! indirect parameter expansion
     # existence test
     if [ ! -d "$srcdir" ]; then
       echo "srcdirnonexst: "$srcdir"" && exit 1
     else
       echo "srcdirexistnt: "$srcdir""; fi; fi
-  # --dstdir existence test
-  if [ $dstdir ]; then
+  # --dstdir
+  if [ "$dstdir" ]; then
     if [ ! -d "$dstdir" ]; then
       echo "dstdirnonexst: "$dstdir"" && exit 1
     else
       echo "dstdirexistnt: "$dstdir""; fi
-  # $dspdir (configuration file value)
+  # $dspdir
   else
-    # link to configuration file value
-    dspdir="$host"_"$repo"_bdsp # {} for underscores
-    dspdir=$(echo ${!dspdir})   # ! for indirect parameter expansion
+    # configuration file value associate
+    dspdir="$host"_"$repo"_bdsp
+    dspdir=$(echo ${!dspdir})
     [ ! -d "$dspdir" ] && echo "dspdirnonexst: "$dspdir"" && exit 1
-    # $dstdir: backup name add to variable
+    # $dstdir define, mkdir
     dstdir="$dspdir"/"$bckname"
-    # $dstdir: mkdir if necessary, check perms
     if [ -d "$dstdir" ]; then
       echo "dstdirexistnt: "$dstdir""
     else
@@ -265,24 +268,22 @@ if [ "$xecute" = "backup" ]; then
       else
         mkdir -p "$dstdir" && echo "dstdircreated: "$dstdir""; fi; fi; fi
   # Backup
-  rsynclog=/tmp/"$host"_"$date"_"$repo"_backup-errors.txt
+  rsynclog=/var/log/"$host"_"$date"_"$repo".log
   while true; do
-    # justdoit - no confirm    
-    if [ ! $justdo ]; then
-      read -p "Execute bckp?: (y/n): " yn
+    # no confirm
+    if [ "$justdo" ]; then
+      yn=y
+    # prompt
     else
-      yn=y; fi
+      read -p "Exec. backup?: " yn; fi
     case $yn in
-      [Yy] ) $sudo rsync --archive --recursive --relative --one-file-system \
-               --xattrs --acls --delete-during --delete-excluded \
+      [Yy] ) $sudo sh -c "rsync \
+               --archive --recursive --relative --xattrs --acls  \
+               --delete-during --delete-excluded                 \
                --info=progress2 --human-readable                 \
                --files-from="$inclist" --exclude-from="$exclist" \
-               "$srcdir"/./ "$dstdir"  2> "$rsynclog"
-               if [ -s "$rsynclog" ]; then
-                 echo
-                 echo "rsync-errrlog: "$rsynclog""
-               else
-                 rm "$rsynclog"; fi
+               "$srcdir"/./ "$dstdir" 2> "$rsynclog""
+               [ -s "$rsynclog" ] && echo "errorloglocal: "$rsynclog""
              break ;;
       [Nn] ) break ;;
       *    ) echo "  Answer 'y' for yes, 'n' for no."
@@ -291,59 +292,60 @@ if [ "$xecute" = "backup" ]; then
 
 # --xecute restore
 if [ "$xecute" = "restore" ]; then
-  # --srcdir existence test
-  if [ $srcdir ]; then
+  # --srcdir
+  if [ "$srcdir" ]; then
     if [ ! -d "$srcdir" ]; then
       echo "srcdirnonexst: "$srcdir"" && exit 1
     else
       echo "srcdirexistnt: "$srcdir""; fi
-  # $srpdir (configurtion file value)
+  # $srpdir
   else
-    # link to configuration file value
-    srpdir="$host"_"$repo"_rsrp # {} for underscores
-    srpdir=$(echo ${!srpdir})   # ! for indirect parameter expansion
-    # existence test
-    [ ! -d "$srpdir" ] && echo "srcparnonexst: "$srpdir"" && exit 1
-    # $srcdir: restore directory prompt
-    echo "Source directory select to restore backup from:"
-    select srcdir in $(find "$srpdir"/* -maxdepth 0 -type d -name "${host}*${repo}*") ; do
+    # configuration file value assosciate
+    srpdir="$host"_"$repo"_rsrp
+    srpdir=$(echo ${!srpdir})
+    # $srpdir existence test
+    [ ! -d "$srpdir" ] && echo "srpdir-noexst: "$srpdir"" && exit 1
+    # $srcdir, define via prompt
+    srcdirs="$(find "$srpdir"/* -maxdepth 0 -type d -name "${host}*${repo}*")"
+    # $srcdirs existence test
+    [ ! "$srcdirs" ]   && echo "srcdir-noexst: no source dirs found" && exit 1
+    echo "Select restore source directory:"
+    select srcdir in $srcdirs ; do
       test -n "$srcdir" && break
       echo "Select 1, 2, ..."; done; fi
-  # --dstdir existence test
-  if [ $dstdir ]; then
+  # --dstdir
+  if [ "$dstdir" ]; then
     if [ ! -d "$dstdir" ]; then
       echo "dstdirnonexst: "$dstdir"" && exit 1
     else
       echo "dstdirexistnt: "$dstdir""; fi
-  # $dstdir (configurtion file value)
+  # $dstdir
   else
-    dstdir="$host"_"$repo"_rdst # {} for underscores
-    dstdir=$(echo ${!dstdir})   # ! for indirect parameter expansion
-   # existence test
-   if [ ! -d "$dstdir" ]; then
+    dstdir="$host"_"$repo"_rdst
+    dstdir=$(echo ${!dstdir})
+    # existence test
+    if [ ! -d "$dstdir" ]; then
       echo "dstdirnonexst: "$dstdir"" && exit 1
     else
       echo "srcdirexistnt: "$srcdir""
       echo "dstdirexistnt: "$dstdir""; fi; fi
   # Restore
-  rsynclog=/tmp/"$host"_"$date"_"$repo"_restore-errors.txt
+  rsynclog=/var/log/"$host"_"$date"_"$repo".log
   while true; do
-    # justdoit - no confirm    
-    if [ ! $justdo ]; then
-      read -p "Execute rstr?: (y/n): " yn
+    # no confirm
+    if [ "$justdo" ]; then
+      yn=y
+    # prompt
     else
-      yn=y; fi
+      read -p "Exec restore?: " yn; fi
     case $yn in
-      [Yy] ) $sudo rsync --archive --recursive --relative --one-file-system \
-               --xattrs --acls --delete-during --delete-excluded \
+      [Yy] ) $sudo sh -c "rsync \
+               --archive --recursive --relative --xattrs --acls  \
+               --delete-during --delete-excluded                 \
                --info=progress2 --human-readable                 \
                --files-from="$inclist" --exclude-from="$exclist" \
-               "$srcdir"/./ "$dstdir"  2> "$rsynclog"
-               if [ -s "$rsynclog" ]; then
-                 echo
-                 echo "rsync-errrlog: "$rsynclog""
-               else
-                 rm "$rsynclog"; fi
+               "$srcdir"/./ "$dstdir" 2> "$rsynclog""
+               [ -s "$rsynclog" ] && echo "errorloglocal: "$rsynclog""
              break ;;
       [Nn] ) break ;;
       *    ) echo "  Answer 'y' for yes, 'n' for no."
@@ -352,47 +354,51 @@ if [ "$xecute" = "restore" ]; then
 
 # --xecute diff
 if [ "$xecute" = "diff" ]; then
-  # --srcdir existence test
-  if [ $srcdir ]; then
+  # --srcdir
+  if [ "$srcdir" ]; then
     if [ ! -d "$srcdir" ]; then
       echo "srcdirnonexst: "$srcdir"" && exit 1
     else
       echo "srcdirexistnt: "$srcdir""; fi
-  # $srpdir (configurtion file value)
+  # $srpdir
   else
-    # link to configuration file value
-    srpdir="$host"_"$repo"_rsrp # {} for underscores
-    srpdir=$(echo ${!srpdir})   # ! for indirect parameter expansion
-    # existence test
-    [ ! -d "$srpdir" ] && echo "srcparnonexst: "$srpdir"" && exit 1
-    # $srcdir: restore directory prompt
-    echo "Source directory select to diff backup from:"
-    select srcdir in $(find "$srpdir"/* -maxdepth 0 -type d -name "${host}*${repo}*") ; do
+    # configuration file value assosciate
+    srpdir="$host"_"$repo"_rsrp
+    srpdir=$(echo ${!srpdir})
+    # $srpdir existence test
+    [ ! -d "$srpdir" ] && echo "srpdir-noexst: "$srpdir"" && exit 1
+    # $srcdir, define via prompt
+    srcdirs="$(find "$srpdir"/* -maxdepth 0 -type d -name "${host}*${repo}*")"
+    # $srcdirs existence test
+    [ ! "$srcdirs" ]   && echo "srcdir-noexst: no source dirs found" && exit 1
+    echo "Select diff source directory:"
+    select srcdir in $srcdirs ; do
       test -n "$srcdir" && break
       echo "Select 1, 2, ..."; done; fi
-  # --dstdir existence test
-  if [ $dstdir ]; then
+  # --dstdir
+  if [ "$dstdir" ]; then
     if [ ! -d "$dstdir" ]; then
       echo "dstdirnonexst: "$dstdir"" && exit 1
     else
       echo "dstdirexistnt: "$dstdir""; fi
-  # $dstdir (configurtion file value)
+  # $dstdir
   else
-    dstdir="$host"_"$repo"_rdst # {} for underscores
-    dstdir=$(echo ${!dstdir})   # ! for indirect parameter expansion
-   # existence test
-   if [ ! -d "$dstdir" ]; then
+    dstdir="$host"_"$repo"_rdst
+    dstdir=$(echo ${!dstdir})
+    # existence test
+    if [ ! -d "$dstdir" ]; then
       echo "dstdirnonexst: "$dstdir"" && exit 1
     else
       echo "srcdirexistnt: "$srcdir""
       echo "dstdirexistnt: "$dstdir""; fi; fi
   # Diff
   while true; do
-    # justdoit - no confirm    
-    if [ ! $justdo ]; then
-      read -p "Execute diff?: (y/n): " yn;
+    # no confirm
+    if [ "$justdo" ]; then
+      yn=y
+    # prompt
     else
-      yn=y; fi
+      read -p "Execute diff?: " yn; fi
     case $yn in
       [Yy] )
         for fileline in $(cat "$inclist"); do
@@ -408,7 +414,7 @@ if [ "$xecute" = "diff" ]; then
             if [ ! -w "$dstfile" -o ! -w $(dirname "$dstfile") ]; then
               $sudo "$eddiff" "$srcfile" "$dstfile"; wait
             else
-                    $(printf '%s' "$eddiff") "$srcfile" "$dstfile"; wait; fi;
+                    "$eddiff" "$srcfile" "$dstfile"; wait; fi;
           else
             continue; fi; done; break ;;
       [Nn] ) break ;;
