@@ -1,6 +1,6 @@
 ### Description
 
-**rback** is a generic backup and restore script.  It wraps common functions of **rsync** to aggragate backup necessities.  **rback** defines:
+**rback** is a generic backup and restore script.  **rback** wraps common functions of **rsync** to aggregate backup necessities.  **rback** defines:
 
 1. The copy options.
 2. The *source* and *destination* directories.

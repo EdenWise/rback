@@ -10,7 +10,7 @@ rback [B<-r> I<repository>] [B<-R> I<reponew>] [B<-i> I<file>] [B<-e> I<file>] [
 
 =head1 DESCRIPTION
 
-B<rback> is a generic backup and restore script.  It wraps common functions of B<rsync>(1) to aggragate backup necessities.  B<rback> defines:
+B<rback> is a generic backup and restore script.  B<rback> wraps common functions of B<rsync>(1) to aggregate backup necessities.  B<rback> defines:
 
 =over
 
