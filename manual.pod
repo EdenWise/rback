@@ -237,5 +237,5 @@ Todd Partridge E<lt>toddrpartridge@gmail.comE<gt>
 
 =head1 COPYRIGHT
 
-License GPLv3: GNU GPL version 3 or later L<http://gnu.org/licenses/gpl.html>.
+License GPLv2: GNU GPL version 2 L<http://gnu.org/licenses/gpl.html>.
 
