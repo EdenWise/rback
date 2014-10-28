@@ -22,7 +22,7 @@ B<rback> is a generic backup and restore script.  B<rback> wraps common function
 
 =back
 
-B<rback> is repository-based to allow for multiple backup types (like full system backups, configurations...), and is only for local backups (i.e. the same computer that it resides on).  Additionaly, B<rback> includes a I<diff> method for working with text files.
+B<rback> is repository-based to allow for multiple backup types (like full system backups, configurations...).  It is only for local backups (i.e. the same computer that it resides on).  Additionaly, B<rback> includes a I<diff> method for working with text files.
 
 =head1 OPTIONS
 

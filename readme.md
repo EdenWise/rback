@@ -6,7 +6,7 @@
 2. The *source* and *destination* directories.
 3. The *file*, *folders*... to *include* or *exclude*.
 
-**rback** is repository-based to allow for multiple backup types (like full system backups, configurations...), and is only for local backups (i.e. the same computer that it resides on).  Additionaly, **rback** includes a *diff* method for working with text files.
+**rback** is repository-based to allow for multiple backup types (like full system backups, configurations...).  It is only for local backups (i.e. the same computer that it resides on).  Additionally, **rback** includes a *diff* method for working with text files.
 
 ### Usage
 
