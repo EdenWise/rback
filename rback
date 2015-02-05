@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/bash
 # A generic, local, rsync-based, backup and restore script
 
 help_print () {
